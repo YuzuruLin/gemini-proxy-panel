@@ -114,7 +114,9 @@ function hideError(container = errorMessageDiv) {
             });
 
             // Check for auth errors (401 Unauthorized, 403 Forbidden)
-            if (response.status === 401 || response.status === 403) {
+            // But make an exception for Gemini key test endpoints that should return 403 for invalid keys
+            if ((response.status === 401 || response.status === 403) && 
+                !endpoint.includes('/test-gemini-key')) {
                 console.log("Authentication required or session expired. Redirecting to login.");
                 localStorage.removeItem('isLoggedIn');
                 window.location.href = '/login';
@@ -560,26 +562,46 @@ function hideError(container = errorMessageDiv) {
                 resultDiv.classList.remove('hidden');
                 resultPre.textContent = 'Testing...';
 
-                // Send test request
-                const result = await apiFetch('/test-gemini-key', {
-                    method: 'POST',
-                    body: JSON.stringify({ keyId, modelId })
-                });
-
-                if (result) {
-                    const formattedContent = typeof result.content === 'object'
-                        ? JSON.stringify(result.content, null, 2)
-                        : result.content;
-
-                    if (result.success) {
-                        resultPre.textContent = `Test Passed!\nStatus: ${result.status}\n\nResponse:\n${formattedContent}`;
+                try {
+                    // 改用直接fetch以捕获所有响应，包括403
+                    const response = await fetch(`/api/admin/test-gemini-key`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ keyId, modelId })
+                    });
+                    
+                    // 尝试读取响应内容
+                    let responseContent;
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        responseContent = await response.json();
+                    } else {
+                        responseContent = await response.text();
+                    }
+                    
+                    // 显示响应结果
+                    if (response.ok) {
+                        const formattedContent = typeof responseContent.content === 'object'
+                            ? JSON.stringify(responseContent.content, null, 2)
+                            : responseContent.content;
+                            
+                        resultPre.textContent = `Test Passed!\nStatus: ${response.status}\n\nResponse:\n${formattedContent}`;
                         resultPre.className = 'text-xs bg-green-50 text-green-800 p-2 rounded overflow-x-auto';
                     } else {
-                        resultPre.textContent = `Test Failed.\nStatus: ${result.status}\n\nResponse:\n${formattedContent}`;
+                        // 显示失败原因，包括错误码和错误内容
+                        const errorContent = typeof responseContent === 'object' 
+                            ? JSON.stringify(responseContent, null, 2)
+                            : responseContent;
+                            
+                        resultPre.textContent = `Test Failed.\nStatus: ${response.status}\n\nResponse:\n${errorContent}`;
                         resultPre.className = 'text-xs bg-red-50 text-red-800 p-2 rounded overflow-x-auto';
                     }
-                } else {
-                    resultPre.textContent = 'Test failed: No response from server';
+                } catch (error) {
+                    // 处理网络错误或其他异常
+                    resultPre.textContent = `Test error: ${error.message}`;
                     resultPre.className = 'text-xs bg-red-50 text-red-800 p-2 rounded overflow-x-auto';
                 }
             });
