@@ -74,7 +74,7 @@ async function proxyChatCompletions(openAIRequestBody, workerApiKey, stream) {
                  { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
                  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
                  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
-                 { category: 'CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
+                 { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
              ];
              console.log("Applying BLOCK_NONE safety settings.");
         }
